@@ -129,6 +129,14 @@ func (d *DB) UpdateTaskPlan(ctx context.Context, id, from, to string, tasks json
 	return tag.RowsAffected() == 1, nil
 }
 
+// CompareTaskQueue changes one authorized start's queue only if it is still the entry the dispatcher read.
+func (d *DB) CompareTaskQueue(ctx context.Context, id string, index int, todoID string, before, after json.RawMessage, at time.Time) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `UPDATE task_plans SET tasks = jsonb_set(tasks, ARRAY[$2::integer::text, 'queue'], $5::jsonb), updated_at = $6
+		WHERE id = $1 AND state = 'started' AND tasks->$2::integer->>'todo_id' = $3 AND tasks->$2::integer->'queue' = $4::jsonb`,
+		id, index, todoID, []byte(before), []byte(after), at)
+	return tag.RowsAffected() == 1, err
+}
+
 func (d *DB) AppendFeed(ctx context.Context, f FeedRow) error {
 	_, err := d.appendDraftFeed(ctx, f, false)
 	return err
