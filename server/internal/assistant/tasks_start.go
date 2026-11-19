@@ -81,6 +81,9 @@ func (s *Service) startPlan(ctx context.Context, id string, edits []PlanTask, re
 			if task.Continues != "" {
 				return nil, planInvalid{i18n.Err("assistant-tasks.request_new_plan")}
 			}
+			if task.ReuseTodo != "" && !task.pieceEdit().empty() {
+				return nil, planInvalid{i18n.Err("assistant-tasks.request_edit_piece")}
+			}
 			if err := s.planPieces(task); err != nil {
 				return nil, planInvalid{err}
 			}
@@ -212,10 +215,12 @@ func (s *Service) startPlan(ctx context.Context, id string, edits []PlanTask, re
 			err = errPlanNotOpen
 		}
 		s.logf("plan %s: %v", p.ID, err)
-		for _, task := range p.Tasks {
-			s.releaseTakenTodo(firstNonEmpty(task.ReuseTodo, task.TodoID))
+		if slices.ContainsFunc(p.Tasks, func(task PlanTask) bool { return task.RequestGate != "" }) {
+			for _, task := range p.Tasks {
+				s.releaseTakenTodo(firstNonEmpty(task.ReuseTodo, task.TodoID))
+			}
+			return nil, err
 		}
-		return nil, err
 	}
 	s.event(ctx, map[string]any{"type": "task_plan", "plan": p})
 	for i := range p.Tasks {

@@ -76,6 +76,7 @@
   "admission_reroute": "{from} から {to} に変更しました：{reason}",
   "admission_queued": "順番待ちです。hub が自動で再試行します：{reason}",
   "request_owner_start": "この依頼には前提タスクがあります。タスク計画カードで開始を承認してください。",
+  "request_edit_piece": "開始を計画する前に、既存の To-do の依頼リンクを編集してください。計画からは変更できません。",
   "request_new_plan": "この To-do で新しい計画を作成し、カードで開始を承認してください。この依頼は直接の続行や起動の再試行に対応していません。",
   "request_waiting": "開始は承認済みです。次の前提タスクの検収を待っています：{pieces}。",
   "request_ready": "開始は承認済みです。起動を待っています。",

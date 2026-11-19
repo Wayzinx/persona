@@ -440,6 +440,25 @@ func (s *Service) movePlan(ctx context.Context, p *TaskPlan, from string) (bool,
 func (s *Service) patchPlanTask(ctx context.Context, planID string, i int, change func(*PlanTask)) error {
 	s.tasks.planEdits.acquire(planID)
 	defer s.tasks.planEdits.release(planID)
+	if store, ok := s.store().(interface {
+		EditStartedPlanTask(context.Context, string, int, func(json.RawMessage) (json.RawMessage, error)) (*db.TaskPlanRow, error)
+	}); ok {
+		row, err := store.EditStartedPlanTask(ctx, planID, i, func(data json.RawMessage) (json.RawMessage, error) {
+			var task PlanTask
+			if err := json.Unmarshal(data, &task); err != nil {
+				return nil, err
+			}
+			change(&task)
+			return json.Marshal(task)
+		})
+		if errors.Is(err, db.ErrTaskPlanNotFound) {
+			return errPlanNotFound
+		}
+		if err == nil && row != nil {
+			s.event(ctx, map[string]any{"type": "task_plan", "plan": planFromRow(*row)})
+		}
+		return err
+	}
 	p, err := s.loadPlan(ctx, planID)
 	if err != nil {
 		return err

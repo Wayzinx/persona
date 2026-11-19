@@ -76,6 +76,7 @@
   "admission_reroute": "Moved from {from} to {to}: {reason}",
   "admission_queued": "Queued, the hub will retry automatically: {reason}",
   "request_owner_start": "This request has prerequisites. Approve the start on its task plan card.",
+  "request_edit_piece": "Edit the existing to-do's request links before planning its start. The plan cannot change them.",
   "request_new_plan": "Make a new plan on this to-do and approve its start on the card. This request does not support continuing or retrying a launch directly.",
   "request_waiting": "Start approved. Waiting for acceptance of: {pieces}.",
   "request_ready": "Start approved. Waiting to launch.",

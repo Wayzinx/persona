@@ -181,6 +181,7 @@ func TestRequestPrerequisitesMissingCancelledAndLegacy(t *testing.T) {
 }
 
 func TestRequestPrerequisitesUnconfirmedStartNeverReplays(t *testing.T) {
+	shortTaskStartReconcile(t)
 	database := todoTestDB(t)
 	env := newTodoEnv(t, database)
 	ctx := context.Background()
