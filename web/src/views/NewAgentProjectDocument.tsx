@@ -118,7 +118,7 @@ function ProjectDocumentLookup({ busy, onAttach }: { busy: boolean; onAttach: (d
       }
     }
   };
-  const inputClass = "h-11 min-w-0 w-full rounded-control bg-inset px-3 text-[12.5px] text-ink shadow-hairline outline-none focus:shadow-[0_0_0_1px_var(--line-strong)]";
+  const inputClass = "h-11 min-w-0 w-full rounded-control bg-inset px-3 text-meta text-ink shadow-hairline outline-none focus:shadow-[0_0_0_1px_var(--line-strong)]";
   return (
     <fieldset disabled={busy} aria-label={t("newagent.project_document_use")} className="flex min-w-0 flex-col gap-2 rounded-control bg-surface p-3 shadow-hairline">
       <div className="grid gap-2 sm:grid-cols-2">
