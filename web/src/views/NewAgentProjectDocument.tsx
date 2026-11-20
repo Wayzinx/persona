@@ -9,11 +9,12 @@ export function projectDocumentText({ content, ...source }: ProjectDocumentSnaps
   const ends = new Set(content.match(/<\/persona-project-document(?:-\d+)?>/g));
   let boundary = "persona-project-document";
   for (let suffix = 1; ends.has(`</${boundary}>`); suffix++) boundary = `persona-project-document-${suffix}`;
-  // Terminals can transform CR or consume control bytes on paste. Encode only documents that contain them.
-  const encoded = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/u.test(content);
+  // A terminal can consume control bytes, and a legacy hub rewrites context/file tags in first messages.
+  const encoded = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/u.test(content)
+    || /<\s*\/?\s*(?:persona|jarvis)-(?:context|file)\b/i.test(content);
   const metadata = encoded ? { ...source, content_encoding: "json-string" } : source;
   const body = encoded
-    ? JSON.stringify(content).replace(/[\u007f-\u009f]/gu, char => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"))
+    ? JSON.stringify(content).replace(/[<\u007f-\u009f]/gu, char => "\\u" + char.charCodeAt(0).toString(16).padStart(4, "0"))
     : content;
   return `<${boundary}>\n${JSON.stringify(metadata)}\n\n${body}\n</${boundary}>`;
 }

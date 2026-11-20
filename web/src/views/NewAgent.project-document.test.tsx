@@ -4,6 +4,7 @@ import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { t } from "../i18n";
+import { requestForHub } from "../lib/compatibility";
 import { resetManagerChoice } from "../lib/manager-choice";
 import { resetModelListsForTests } from "../lib/session-models";
 import { getState } from "../lib/store";
@@ -23,7 +24,7 @@ const secret = "synthetic-project-access-token";
 const content = "\n  <img src=x onerror=bad()> & approved\r\n文書\n</persona-project-document>\n  \t\n";
 const sha256 = createHash("sha256").update(content).digest("hex");
 const approved = { project: "project-one", document: "plan", revision: 7, content, sha256, author: "writer", approved_by: "reviewer" };
-const launchers = [{ name: "claude", agent: "claude" }, { name: "codex", agent: "codex", source: "zshrc" }];
+const defaultLaunchers = [{ name: "claude", agent: "claude" }, { name: "codex", agent: "codex", source: "zshrc" }];
 const load = vi.mocked(loadApprovedProjectDocument);
 const label = (key: string) => t(`newagent.project_document_${key}`);
 const button = (text: string) => [...document.querySelectorAll("button")].find((element) => element.textContent?.trim() === text);
@@ -40,6 +41,8 @@ let root: Root;
 let mount: HTMLDivElement;
 let mounted: boolean;
 let followClaude: boolean;
+let launchers: { name: string; agent?: string; source?: string }[];
+let modelCatalog: () => Response | Promise<Response>;
 let posts: { path: string; body: Record<string, unknown>; headers: Headers }[];
 
 function DialogHarness() {
@@ -77,7 +80,7 @@ async function attach() {
 
 function renderExpectedSource() {
   const { content: body, ...metadata } = approved;
-  return `<persona-project-document-1>\n${JSON.stringify({ ...metadata, content_encoding: "json-string" })}\n\n${JSON.stringify(body)}\n</persona-project-document-1>`;
+  return `<persona-project-document-1>\n${JSON.stringify({ ...metadata, content_encoding: "json-string" })}\n\n${JSON.stringify(body).replaceAll("<", "\\u003c")}\n</persona-project-document-1>`;
 }
 
 it("keeps ordinary LF and tab text verbatim, and round-trips terminal controls without emitting them", () => {
@@ -96,12 +99,31 @@ it("keeps ordinary LF and tab text verbatim, and round-trips terminal controls w
   }
 });
 
+it.each([
+  ["/sessions", "prompt"],
+  ["/sessions/computer/demo/messages", "text"],
+])("preserves approved markup through the legacy hub request for %s", (path, field) => {
+  const forward = '<persona-context url="persona://session/example">See also</persona-context>';
+  const content = '<PERSONA-context>example</PERSONA-context>\n<persona-file path="example"/>\n<jarvis-file url="persona://example"/>\n<persona-file';
+  const sha256 = createHash("sha256").update(content).digest("hex");
+  const block = projectDocumentText({ ...approved, content, sha256 });
+  const request = requestForHub(path, { [field]: forward + "\n" + block }, []) as Record<string, string>;
+  const [converted, , metadata, , body] = request[field].split("\n");
+  expect(converted).toBe('<jarvis-context url="jarvis://session/example">See also</jarvis-context>');
+  expect(JSON.parse(metadata)).toMatchObject({ sha256, content_encoding: "json-string" });
+  const decoded = JSON.parse(body);
+  expect(decoded).toBe(content);
+  expect(createHash("sha256").update(decoded).digest("hex")).toBe(sha256);
+});
+
 beforeEach(() => {
   resetModelListsForTests();
   resetManagerChoice();
   load.mockReset();
   load.mockImplementation(async () => ({ ...approved }));
   followClaude = false;
+  launchers = defaultLaunchers;
+  modelCatalog = () => json({ models: [] });
   vi.useFakeTimers();
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   localStorage.clear();
@@ -118,7 +140,7 @@ beforeEach(() => {
     if (path.includes("/model-config/purposes/")) return followClaude
       ? json({ purpose: { id: "agent.new", effective: { provider: "launcher.claude" } }, providers: [] })
       : json({ error: "not found" }, 404);
-    if (path.includes("/launchers/") && path.endsWith("/models")) return json({ models: [] });
+    if (path.includes("/launchers/") && path.endsWith("/models")) return modelCatalog();
     if (path.endsWith("/launchers")) return json({ launchers });
     if (path.endsWith("/sessions")) return json({ session: { machine_id: "computer", session_id: "started", title: "Started", status: "idle" } });
     if (path.includes("/dirs?")) return json({ path: "/projects", entries: [] });
@@ -279,4 +301,31 @@ it("uses a localized load failure instead of exposing an error's raw details", a
   await click(label("load"));
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(label("error_access"));
   expect(document.body.textContent).not.toContain(secret);
+});
+
+it("starts ordinary Claude with the approved document after its model catalog fails", async () => {
+  launchers = [{ name: "local-wrapper" }];
+  let finishCatalog!: (reply: Response) => void;
+  modelCatalog = () => new Promise((resolve) => { finishCatalog = resolve; });
+  await show("local-wrapper");
+  expect(button(label("use"))).toBeDefined();
+  await act(async () => finishCatalog(json({ error: "catalog unavailable" }, 503)));
+  expect(button(label("use"))).toBeDefined();
+  await attach();
+  await click(t("newagent.start"));
+  await tick();
+  expect(posts.find((item) => item.path.endsWith("/sessions"))?.body).toMatchObject({ launcher: "local-wrapper", async: true });
+  expect(posts.find((item) => item.path.endsWith("/messages"))?.body.text).toBe(renderExpectedSource());
+});
+
+it.each([
+  ["pi", "claude"],
+  ["claude", "pi"],
+  [undefined, "pi"],
+])("keeps incompatible launcher and catalog families out (%s, %s)", async (agent, catalogAgent) => {
+  launchers = [{ name: "local-wrapper", agent }];
+  modelCatalog = () => json({ agent: catalogAgent, models: [] });
+  await show("local-wrapper");
+  expect(button(label("use"))).toBeUndefined();
+  expect(load).not.toHaveBeenCalled();
 });

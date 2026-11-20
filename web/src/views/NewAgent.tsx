@@ -554,7 +554,8 @@ function AgentForm({ open, onClose, preset }: NewAgentProps) {
   const codex = agent === "codex";
   const needsFirst = codex && launchers.find((l) => l.name === listLauncher)?.prompt_optional !== true;
   const documentHost = opensIn ?? hostDefault;
-  const documentAgent = listEntry?.agent_type || listEntry?.agent || models.list?.agent;
+  // An explicit launcher family must agree with the catalog. Older Claude entries use launcherAgent's default.
+  const documentAgent = listEntry?.agent_type || listEntry?.agent || agent;
   const documentScope = picked && listEntry && !loadingModels && !workspace && !desktopStart
     && documentAgent === agent && (agent === "claude" || codex) && PROJECT_DOCUMENT_HOSTS.has(documentHost)
     ? JSON.stringify([credential, manager, mid, documentHost, listLauncher, agent]) : null;
