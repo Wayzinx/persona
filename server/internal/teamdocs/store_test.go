@@ -116,11 +116,11 @@ func TestStoreRevisionJSON(t *testing.T) {
 		t.Fatalf("unexpected draft JSON: %s", encoded)
 	}
 	revision.ApprovedBy = "approver"
-	approvalTime := time.Now()
+	approvalTime := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	revision.ApprovedAt = &approvalTime
 	encoded, err = json.Marshal(revision)
 	requireStoreError(t, err, nil)
-	if string(encoded) != `{"project":"alpha","document":"Guide","revision":1,"content":"draft","sha256":"digest","author":"writer","approved_by":"approver"}` {
+	if string(encoded) != `{"project":"alpha","document":"Guide","revision":1,"content":"draft","sha256":"digest","author":"writer","approved_by":"approver","approved_at":"2026-01-02T03:04:05Z"}` {
 		t.Fatalf("unexpected approved JSON: %s", encoded)
 	}
 }

@@ -23,7 +23,7 @@ var (
 	ErrInvalid      = errors.New("invalid team document input")
 	ErrUnauthorized = errors.New("invalid project credential")
 	ErrForbidden    = errors.New("project role does not permit this operation")
-	ErrNotFound     = errors.New("document revision not found")
+	ErrNotFound     = errors.New("team document resource not found")
 	ErrConflict     = errors.New("document head does not match")
 )
 
